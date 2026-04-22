@@ -27,7 +27,8 @@ state = {
     "physical_keys_down": set(),
     "client_name": "Searching...",
     "active": False,
-    "running": True
+    "running": True,
+    "zxcv_enabled": False
 }
 
 def get_darkages_window_info():
@@ -72,7 +73,13 @@ async def injection_loop():
         state["active"] = "Darkages" in name
 
         if state["active"] and state["physical_keys_down"]:
-            active_targets = {KEY_MAP[k] for k in state["physical_keys_down"] if k in KEY_MAP}
+            active_targets = set()
+            for k in state["physical_keys_down"]:
+                if k in ["KEY_Z", "KEY_X", "KEY_C", "KEY_V"] and not state["zxcv_enabled"]:
+                    continue
+                if k in KEY_MAP:
+                    active_targets.add(KEY_MAP[k])
+            
             for target in active_targets:
                 for _ in range(state["multiplier"]):
                     subprocess.run(f"xdotool key {target}", shell=True, stderr=subprocess.DEVNULL)
@@ -116,20 +123,34 @@ def draw_ui(stdscr):
         stdscr.attroff(curses.A_BOLD | curses.color_pair(4))
         stdscr.addstr("  [+/- to adjust]")
 
+        # ZXCV Movement Toggle
+        stdscr.addstr(9, 2, f"ZXCV:    ")
+        if state["zxcv_enabled"]:
+            stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+            stdscr.addstr("ENABLED")
+            stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+        else:
+            stdscr.attron(curses.color_pair(3))
+            stdscr.addstr("DISABLED (Arrows Only)")
+            stdscr.attroff(curses.color_pair(3))
+        stdscr.addstr("  ['m' to toggle]")
+
         # Input
         keys = ", ".join([k.replace("KEY_", "") for k in state["physical_keys_down"]])
-        stdscr.addstr(9, 2, f"Input:   [{keys if keys else 'None'}]")
+        stdscr.addstr(11, 2, f"Input:   [{keys if keys else 'None'}]")
 
         # Footer
         stdscr.addstr(h-2, 2, "Press 'q' to Exit")
 
         stdscr.refresh()
         
-        # Check for UI-based exit
+        # Check for UI-based keys
         try:
             ch = stdscr.getch()
             if ch == ord('q'):
                 state["running"] = False
+            elif ch in [ord('m'), ord('M')]:
+                state["zxcv_enabled"] = not state["zxcv_enabled"]
         except:
             pass
             
